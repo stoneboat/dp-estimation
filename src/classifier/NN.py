@@ -44,6 +44,8 @@ class DemoNN_Model(nn.Module):
         ## output layer
         self.encoder.append(Linear(h_size, 2))
 
+        self.device = None
+
     def out(self, data):
         # proceed the input layer
         data = self.act(self.encoder[0](data))
@@ -62,8 +64,10 @@ class DemoNN_Model(nn.Module):
 
     def predict(self, test_features):
         with torch.no_grad():
-            outputs = self.out(torch.from_numpy(test_features))
-            self.test_label_output = outputs.numpy().round().flatten()
+            test_features = torch.from_numpy(test_features).to(self.device)
+            outputs = self.out(test_features)
+
+            self.test_label_output = outputs.cpu().numpy().round().flatten()
 
         return self.test_label_output
 
@@ -191,6 +195,7 @@ def _train_NN_model(samples, file_name="nn_files", n_epoch=1, batch_size=1000, l
     pool.map(train_NN_function, input_list)
 
     return model
+    
 
 
 

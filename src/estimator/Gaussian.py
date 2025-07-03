@@ -100,7 +100,7 @@ class GaussianEstimator:
 
         return self.output_
 
-    def build(self, classifier="kNN"):
+    def build(self, classifier="kNN", classifier_args=None):
         logging.info('Generate samples')
         training_pos_samples = self.sample_generator.gen_samples(int(self.training_set_size / 2),
                                                                  generate_positive_sample=True)
@@ -114,7 +114,7 @@ class GaussianEstimator:
 
         logging.info(f"Train {classifier} classifier")
         self.model = train_model(positive_samples=training_pos_samples, negative_samples=training_neg_samples,
-                                 classifier=classifier)
+                                 classifier=classifier, classifier_args=classifier_args)
 
         logging.info(f"Test {classifier} classifier")
         tic = time.perf_counter()

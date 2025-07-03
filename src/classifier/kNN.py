@@ -11,6 +11,7 @@ from pympler.asizeof import asizeof
 
 from classifier.NN import _train_NN_model
 from utils.commons import convert_bytes_to_gb, convert_gb_to_bytes
+from classifier.neural_network_classification import train_NN_model_flow
 
 
 class OneDkNNImpl:
@@ -159,12 +160,15 @@ def train_model_with_stacked_samples(samples, n_features=1, permute=False, class
     if classifier == "kNN":
         return _train_model(samples=samples, n_features=n_features)
     if classifier == "NeuralNetwork":
-        if classifier_args is None:
-            return _train_NN_model(samples=samples, file_name=file_name, workers=n_workers)
+        if not classifier_args or not classifier_args.get("use_gpu", False):
+            if classifier_args is None:
+                return _train_NN_model(samples=samples, file_name=file_name, workers=n_workers)
+            else:
+                return _train_NN_model(samples=samples, file_name=file_name, workers=n_workers, n_epoch=classifier_args[
+                    'n_epoch'], batch_size=classifier_args['batch_size'], lr=classifier_args['lr'],
+                                    n_batches=classifier_args['n_batches'], model=classifier_args['model'])
         else:
-            return _train_NN_model(samples=samples, file_name=file_name, workers=n_workers, n_epoch=classifier_args[
-                'n_epoch'], batch_size=classifier_args['batch_size'], lr=classifier_args['lr'],
-                                   n_batches=classifier_args['n_batches'], model=classifier_args['model'])
+            return train_NN_model_flow(samples=samples, nn_classifier_args=classifier_args)
     return None
 
 
@@ -214,9 +218,10 @@ def stack_samples(positive_samples, negative_samples):
 
 def compute_testing_risk(samples, model=None):
     assert model is not None, 'Model must be fitted first'
-    X, y = samples['X'], samples['y']
 
-    return model.score(X, y)
+    return model.score(samples['X'], samples['y'])
+
+
 
 
 def compute_shaping_risk(positive_samples, negative_samples, true_sample_size, model=None):
