@@ -10,17 +10,16 @@ from torch.nn import Linear
 
 from torch.utils.data import Dataset, DistributedSampler
 import torch.optim as optim
-from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR
-
+from torch.optim.lr_scheduler import StepLR
 import torch.distributed as dist
 from datetime import timedelta
+
+from classifier.network_architecture import NN_Model_Template
 
 torch.set_default_dtype(torch.float64)
 
 
-#   This class defines the structure of the inverse function via Neural Network
-#   I will train its structure to amplify the projected noised marginal distribution to original marginal distribution
-class DemoNN_Model(nn.Module):
+class DemoNN_Model(NN_Model_Template):
     def __init__(self, n_features=1):
         super(DemoNN_Model, self).__init__()
 
@@ -32,7 +31,7 @@ class DemoNN_Model(nn.Module):
         self.act = torch.nn.ReLU()
 
         # number of layer
-        self.nl1 = 8
+        self.nl1 = 16
 
         # create the model template
         self.encoder = torch.nn.ModuleList()
@@ -43,8 +42,6 @@ class DemoNN_Model(nn.Module):
             self.encoder.append(Linear(h_size, h_size))
         ## output layer
         self.encoder.append(Linear(h_size, 2))
-
-        self.device = None
 
     def out(self, data):
         # proceed the input layer
@@ -62,26 +59,11 @@ class DemoNN_Model(nn.Module):
 
         return x[:, 0]
 
-    def predict(self, test_features):
-        with torch.no_grad():
-            test_features = torch.from_numpy(test_features).to(self.device)
-            outputs = self.out(test_features)
-
-            self.test_label_output = outputs.cpu().numpy().round().flatten()
-
-        return self.test_label_output
-
     # initialize the parameters of the network
     def init_weights(self, m):
         if type(m) == torch.nn.Linear:
             torch.nn.init.kaiming_normal_(m.weight)
             m.bias.data.fill_(0.02)
-
-    def score(self, test_features, test_labels):
-        return (self.predict(test_features) == test_labels).mean()
-
-    def correct_num(self, test_features, test_labels):
-        return (self.predict(test_features) == test_labels).sum()
 
 
 class DPEstimatorDataset(Dataset):

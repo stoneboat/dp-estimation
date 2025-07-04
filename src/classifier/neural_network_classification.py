@@ -1,9 +1,11 @@
 from classifier.NN import DemoNN_Model, DPEstimatorDataset
+from classifier.network_architecture import QuadraticNN_Model
 import torch
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 import torch.nn as nn
 import logging
+from tqdm import tqdm
 
 
 def train_NN_model_flow(samples, nn_classifier_args={}):
@@ -16,17 +18,24 @@ def train_NN_model_flow(samples, nn_classifier_args={}):
     trainset = DPEstimatorDataset(samples)
 
     model = nn_classifier_args.get("model", None)
-    if model is None:
-        print("Initializing model")
-        model = DemoNN_Model(n_features=samples['X'].shape[1])
-        model.apply(model.init_weights)
-
-    model = model.to(device)
+    
 
     n_epoch = nn_classifier_args.get("n_epoch", 20)
     batch_size = nn_classifier_args.get("batch_size", 500)
     lr = nn_classifier_args.get("lr", 0.00001)
     n_batches = nn_classifier_args.get("n_batches", 100)
+    model_type = nn_classifier_args.get("model_type", "demo")
+
+    if model is None:
+        if model_type == "demo":
+            model = DemoNN_Model(n_features=samples['X'].shape[1])
+            criterion = nn.BCELoss()
+        elif model_type == "quadratic":
+            model = QuadraticNN_Model(n_features=samples['X'].shape[1])
+            criterion = nn.BCEWithLogitsLoss()
+        model.apply(model.init_weights)
+
+    model = model.to(device)
 
 
     # Start training
@@ -39,37 +48,71 @@ def train_NN_model_flow(samples, nn_classifier_args={}):
 
     scheduler = StepLR(optimizer, step_size=10, gamma=0.1)
 
+    # Calculate total iterations for single progress bar
+    total_iterations = n_epoch * len(trainloader)
+    
+    # Create single progress bar for all iterations
+    pbar = tqdm(total=total_iterations, desc=f"Training Progress with {model_type} model", 
+                bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]')
+    
     for epoch in range(n_epoch):
         running_loss = 0.0
-        for i, data in enumerate(trainloader, 0):
+        epoch_losses = []
+        
+        for i, data in enumerate(trainloader):
             inputs, labels = data['data'].to(device), data['label'].to(device)
             outputs = model.out(inputs)
 
             # loss = torch.sum(abs(outputs.squeeze() - labels))/outputs.shape[0]
 
-            criterion = nn.BCELoss()
+            
             loss = criterion(outputs, labels)
 
             loss.backward()
             optimizer.step()  # Does the update
             optimizer.zero_grad()  # zero the gradient buffers
-            # print statistics
-            running_loss += loss.item()
-
-            if i % n_batches == n_batches-1:  # print every 500 mini-batches
+            
+            # Update running loss
+            current_loss = loss.item()
+            running_loss += current_loss
+            epoch_losses.append(current_loss)
+            
+            # Update progress bar
+            pbar.update(1)
+            
+            # Update description every n_batches
+            if i % n_batches == n_batches - 1:
+                avg_loss = running_loss / (i + 1)
                 learning_rate = optimizer.state_dict()['param_groups'][0]['lr']
-                logger.critical(f'[epoch {epoch + 1}, batch {int((i + 1)):5d}] average '
-                                f'loss: {running_loss / n_batches:.6f} '
-                                f'learning rate={learning_rate:.9f}')
+                
+                pbar.set_description(
+                    f'Epoch {epoch+1}/{n_epoch} | '
+                    f'Batch {i+1}/{len(trainloader)} | '
+                    f'Avg Loss: {avg_loss:.6f} | '
+                    f'LR: {learning_rate:.9f}'
+                )
+                
+                pbar.set_postfix({
+                    'Epoch Loss': f'{avg_loss:.6f}',
+                    'LR': f'{learning_rate:.9f}'
+                })
 
-                running_loss = 0.0
-
+        # Update epoch summary
+        epoch_avg_loss = running_loss / len(trainloader)
+        learning_rate = optimizer.state_dict()['param_groups'][0]['lr']
+        pbar.set_postfix({
+            'Epoch Loss': f'{epoch_avg_loss:.6f}',
+            'LR': f'{learning_rate:.9f}'
+        })
+        
         scheduler.step()
     
+    pbar.close()
     print("Training completed")
 
     # clean up
     torch.cuda.empty_cache()
     model.device = device
+    model.eval()
 
     return model
