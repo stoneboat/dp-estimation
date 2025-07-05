@@ -66,7 +66,7 @@ def generate_sparse_linear_classifier_for_standard_gaussian(pos_samples, neg_sam
     Assumptions: mu0 and mu1 are unknown, but they differ in at least one dimension.
                  The prior probabilities pi0 and pi1 are known.
     
-    Setting of the regularization strength is as the level of \sqrt{sparsity * log(dimensions) / sample size}, 
+    Setting of the regularization strength is as the level of sqrt(sparsity * log(dimensions) / sample size), 
     which is accoding to the excess risk bound in "A Direct Estimation Approach to Sparse Linear Discriminant Analysis"
     from https://arxiv.org/abs/1107.3442
         
@@ -147,4 +147,4 @@ def generate_sparse_linear_classifier_for_standard_gaussian_robust(samples, reg_
     def sparse_linear_classifier(x):
         return 1 if np.dot(w, x) + b > 0 else 0
     
-    return sparse_linear_classifier
+    return sparse_linear_classifier, w, b
