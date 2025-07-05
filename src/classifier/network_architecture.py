@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.nn import Linear
-
+from lassonet import LassoNetClassifierCV, LassoNetClassifier
 
 class NN_Model_Template(nn.Module):
     def __init__(self):
@@ -78,6 +78,42 @@ class QuadraticNN_Model(NN_Model_Template):
         return self.test_label_output
 
 
+class LassoNetClassifierCV64(LassoNetClassifierCV):
+    def _init_model(self, X, y):
+        # build the model as usual…
+        super()._init_model(X, y)
+        # then force all its weights/biases into double
+        self.model = self.model.double()
 
+    def _cast_input(self, X, y=None):
+        # mirror the original logic, but with DoubleTensor
+        if hasattr(X, "to_numpy"):
+            X = X.to_numpy()
+        X = torch.DoubleTensor(X).to(self.device)
+        if y is None:
+            return X
+        if hasattr(y, "to_numpy"):
+            y = y.to_numpy()
+        y = self._convert_y(y)
+        return X, y
+
+class LassoNetClassifier64(LassoNetClassifier):
+    def _init_model(self, X, y):
+        # build the model as usual…
+        super()._init_model(X, y)
+        # then force all its weights/biases into double
+        self.model = self.model.double()
+
+    def _cast_input(self, X, y=None):
+        # mirror the original logic, but with DoubleTensor
+        if hasattr(X, "to_numpy"):
+            X = X.to_numpy()
+        X = torch.DoubleTensor(X).to(self.device)
+        if y is None:
+            return X
+        if hasattr(y, "to_numpy"):
+            y = y.to_numpy()
+        y = self._convert_y(y)
+        return X, y
 
                 
